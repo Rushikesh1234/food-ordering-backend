@@ -19,12 +19,9 @@ def list_restaurants(
     db: Session = Depends(get_db)
     ):
     
-    '''
-    if page < 1: 
-        page = 1
-
-    offset = (page - 1) * size
-    '''
+    #if page < 1: 
+    #    page = 1
+    #offset = (page - 1) * size
     
     if last_id < 0:
         last_id = 0

@@ -49,12 +49,10 @@ def list_orders(
     ):
     
     # For Offset pagination - page based
-    '''
-    if page < 1:
-        page = 1
-    
-    offset = (page - 1) * size
-    '''
+    #if page < 1:
+    #    page = 1
+    #offset = (page - 1) * size
+   
     # For Keyset pagination - last_id based
     if last_id < 0:
         last_id = 0
