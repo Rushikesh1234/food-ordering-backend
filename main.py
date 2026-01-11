@@ -9,7 +9,6 @@ app.include_router(restaurants.router, prefix='/restaurants', tags=['Restaurants
 app.include_router(menu.router, prefix='/menu', tags=['Menu'])
 app.include_router(orders.router, prefix='/orders', tags=['Orders'])
 
-
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
