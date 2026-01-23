@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from decimal import Decimal
+from typing import cast
 
 from app.models.restaurant import Restaurant
 from app.models.menu_item import MenuItem
@@ -14,16 +16,16 @@ def validate_restaurant(db: Session, restaurant_id: int) -> Restaurant:
 
 def validate_menu_items(db: Session, restaurant_id: int, order_items: list[OrderItemCreate]):
     validated_menu_items = []
-    total_amount = 0.0
+    total_amount = Decimal("0.00")
 
     for item in order_items:
         menu_item = db.query(MenuItem).filter(MenuItem.id == item.menu_item_id).first()
         if not menu_item:
             raise HTTPException(status_code=404, detail=f"Menu item with ID {item.menu_item_id} not found")
-        if menu_item.restaurant_id != restaurant_id:
+        if cast(int, menu_item.restaurant_id) != int(restaurant_id):
             raise HTTPException(status_code=400, detail=f"Menu item with ID {item.menu_item_id} does not belong to the specified restaurant")
         
-        total_amount += float(item.quantity) * float(menu_item.price)
+        total_amount += Decimal(str(item.quantity)) * Decimal(str(menu_item.price))
 
         validated_menu_items.append(
             {

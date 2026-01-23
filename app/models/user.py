@@ -13,5 +13,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    order = relationship("Order", back_populates="user")
-    restaurant = relationship("Restaurant", back_populates="owner")
+    orders = relationship("Order", back_populates="user", foreign_keys="Order.user_id")
+    delivers = relationship("Order", back_populates="driver", foreign_keys="[Order.driver_id]")
+
+    restaurants = relationship("Restaurant", back_populates="owner")

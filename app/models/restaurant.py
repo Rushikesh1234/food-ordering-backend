@@ -18,6 +18,6 @@ class Restaurant(Base):
         UniqueConstraint('name', 'address', name='uix_restaurant_name_address'),
     )
 
-    menu_item = relationship("MenuItem", back_populates="restaurant")
-    order = relationship("Order", back_populates="restaurant")
-    owner = relationship("User", back_populates="restaurant")
+    menu_items = relationship("MenuItem", back_populates="restaurant")
+    orders = relationship("Order", back_populates="restaurant")
+    owner = relationship("User", back_populates="restaurants")

@@ -1,13 +1,16 @@
 from pydantic import BaseModel, StringConstraints, ConfigDict, Field
 from typing import Optional, Annotated
 from datetime import datetime
-from app.schemas.global_contraints import EmailStr, PasswordStr
 from enum import Enum
+
+from app.schemas.global_contraints import EmailStr, PasswordStr
 
 class UserRole(str, Enum):
     ADMIN = 'admin'
     CUSTOMER = 'customer'
     RESTAURANT_OWNER = 'restaurant_owner'
+    DRIVER = "driver"
+    SYSYEM = "system"
 
 class UserLogin(BaseModel):
     email: EmailStr = Field(

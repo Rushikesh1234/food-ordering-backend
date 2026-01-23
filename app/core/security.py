@@ -13,14 +13,18 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 import jwt
 from datetime import datetime, timedelta
-from app.core.config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.models.user import User
-from app.schemas.user import TokenData
 from enum import Enum
+from typing import cast
+
+from app.core.config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+
+from app.db.session import get_db
+
+from app.models.user import User
+
 from app.schemas.user import UserRole
 
 def create_access_token(user_id: int, role: str):
@@ -61,16 +65,26 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 # role-based dependency functions
 def require_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != UserRole.ADMIN:
+    if cast(str, current_user.role) != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return current_user
 
 def require_restaurant_owner_or_admin(current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.RESTAURANT_OWNER, UserRole.ADMIN]:
-        raise HTTPException(status_code=403, detail="Restaurant owner or admin privileges required")
+        raise HTTPException(status_code=403, detail="Restaurant Owner or Admin privileges required")
     return current_user
 
 def require_customer_or_admin(current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.CUSTOMER, UserRole.ADMIN]:
-        raise HTTPException(status_code=403, detail="Customer privileges required")
+        raise HTTPException(status_code=403, detail="Customer or Admin privileges required")
+    return current_user
+
+def require_driver_or_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role not in [UserRole.DRIVER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Driver or Admin privileges required")
+    return current_user
+
+def require_order_updater(current_user: User = Depends(get_current_user)):
+    if current_user.role not in [UserRole.ADMIN, UserRole.RESTAURANT_OWNER, UserRole.DRIVER]:
+        raise HTTPException(status_code=403, detail="Restaurant Owner, Driver or Admin privileges required")
     return current_user

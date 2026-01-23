@@ -1,13 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from typing import List, cast
+
 from app.models.menu_item import MenuItem
-from app.schemas.menu_item import MenuItemCreate, MenuItemResponse
-from app.schemas.user import UserRole
 from app.models.restaurant import Restaurant
 from app.models.user import User
+
+from app.schemas.menu_item import MenuItemCreate, MenuItemResponse
+from app.schemas.user import UserRole
+
 from app.core.security import require_restaurant_owner_or_admin
+
 from app.db.session import get_db
-from sqlalchemy.orm import Session
-from typing import List
 
 router = APIRouter()
 
@@ -37,7 +41,7 @@ def create_menu_item(
         if not restaurant:
             raise HTTPException(status_code=404, detail="Restaurant not found")
 
-        if restaurant_owner.role != UserRole.ADMIN and restaurant.owner_id != restaurant_owner.id:
+        if cast(str, restaurant_owner.role) != UserRole.ADMIN and cast(int, restaurant.owner_id) != restaurant_owner.id:
             raise HTTPException(status_code=403, detail="Not authorized to add menu items to this restaurant")
 
         existing_menu_item = db.query(MenuItem).filter(

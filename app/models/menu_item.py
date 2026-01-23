@@ -18,5 +18,5 @@ class MenuItem(Base):
         UniqueConstraint('restaurant_id', 'name', name='uix_restaurant_menuitem_name'),
     )
 
-    restaurant = relationship("Restaurant", back_populates="menu_item")
-    order_item = relationship("OrderItem", back_populates="menu_item")
+    restaurant = relationship("Restaurant", back_populates="menu_items")
+    order_items = relationship("OrderItem", back_populates="menu_item")

@@ -1,14 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as session, joinedload
-from app.db.session import get_db
-from app.schemas.order import OrderCreate, OrderResponse, OrderListResponse
-from app.core.security import require_customer_or_admin
-from app.models.user import User
-from app.schemas.user import UserRole
-from app.models.order import Order
-from app.services import order_service as service
-from fastapi import Query
 from sqlalchemy import asc
+from typing import cast
+
+from app.db.session import get_db
+
+from app.schemas.order import OrderCreate, OrderResponse, OrderListResponse
+from app.schemas.user import UserRole
+
+from app.core.security import require_customer_or_admin, require_order_updater
+
+from app.models.user import User
+from app.models.order import Order
+
+from app.services.order_validation import order_service as order_service
+from app.services.order_validation import order_status_service as order_status_service
 
 router = APIRouter()
 
@@ -18,7 +24,16 @@ def create_order(
     db: session = Depends(get_db), 
     current_user: User = Depends(require_customer_or_admin)
     ):
-    return service.create_order(db, current_user, order)
+    return order_service.create_order(db, current_user, order)
+
+@router.put("/{order_id}/status/{new_status}", response_model=OrderResponse)
+def change_order_status(
+        order_id: int,
+        new_status: str,
+        db: session = Depends(get_db), 
+        current_user: User = Depends(require_order_updater)
+    ):
+    return order_status_service.update_order_status(db, current_user, order_id, new_status)
 
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(
@@ -27,11 +42,11 @@ def get_order(
     current_user: User = Depends(require_customer_or_admin)
     ):
     
-    existing_order = db.query(Order).options(joinedload(Order.order_item))
+    existing_order = db.query(Order).options(joinedload(Order.order_items))
 
     existing_order = existing_order.filter(Order.id == order_id)
 
-    if current_user.role != UserRole.ADMIN:
+    if cast(str, current_user.role) != UserRole.ADMIN:
         existing_order = existing_order.filter(Order.user_id == current_user.id)
 
     existing_order = existing_order.first()
@@ -57,9 +72,9 @@ def list_orders(
     if last_id < 0:
         last_id = 0
 
-    existing_orders = db.query(Order).options(joinedload(Order.order_item))
+    existing_orders = db.query(Order).options(joinedload(Order.order_items))
 
-    if current_user.role != UserRole.ADMIN:
+    if cast(str,current_user.role) != UserRole.ADMIN:
         existing_orders = existing_orders.filter(Order.user_id == current_user.id)
 
     # total_counts = existing_orders.count()

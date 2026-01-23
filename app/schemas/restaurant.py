@@ -21,6 +21,7 @@ class RestaurantResponse(BaseModel):
     name: str
     address: str
     phone_number: Optional[MobileNumberStr] = None
+    owner_id: int
 
     model_config = ConfigDict(from_attributes=True)
 

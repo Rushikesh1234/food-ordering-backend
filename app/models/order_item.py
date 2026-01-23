@@ -14,5 +14,5 @@ class OrderItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    order = relationship("Order", back_populates="order_item")
-    menu_item = relationship("MenuItem", back_populates="order_item")
+    order = relationship("Order", back_populates="order_items")
+    menu_item = relationship("MenuItem", back_populates="order_items")

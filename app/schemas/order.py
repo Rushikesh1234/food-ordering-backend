@@ -17,6 +17,7 @@ class OrderResponse(BaseModel):
     id: int
     user_id: int
     restaurant_id: int
+    driver_id: Optional[int] = None
     total_amount: PriceDecimal
     status: str
     created_at: datetime
