@@ -202,7 +202,17 @@ Consumers must run in the background to process events.
 ### 5. Start Redis Infrastructure
 Start Redis (Required for Idempotency)
 ```bash
-docker run -d --name redis -p 6379:6379 redis:alpine
+# Linux (Ubuntu/Debian)
+sudo apt install redis-server
+sudo service redis-server start
+
+# macOS (Homebrew)
+brew install redis
+brew services start redis
+
+# To verify Redis is running:
+redis-cli ping
+# Should return "PONG"
 ```
 
 ### 6. Run the API Server
