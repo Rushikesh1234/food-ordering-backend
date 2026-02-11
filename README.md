@@ -59,10 +59,12 @@ CREATED
 - Kafka topic: order.events
 - Events published after successful DB commits
 - Used for side effects, not state mutation
+
 **Kafka is used for:**
 - Asynchronous notifications (driver, customer)
 - Decoupling core order logic from external services
 - Enabling horizontal scaling via consumer groups
+
 **Order State Machine is used for:**
 - Enforcing business correctness
 - Preventing invalid or skipped order transitions
@@ -72,6 +74,7 @@ CREATED
 **Driver Notification Service**
 - Listens for ASSIGNED events
 - Notifies drivers of new delivery assignments
+
 **Analytics / Notification–ready architecture**
 - Consumers are decoupled and independently scalable
 
