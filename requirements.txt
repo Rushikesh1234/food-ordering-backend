@@ -1,6 +1,7 @@
 # Web Framework
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
+uuid64==0.2.0
 
 # Database & ORM
 SQLAlchemy==2.0.29
@@ -18,3 +19,7 @@ httpx==0.27.0
 
 # Kafka Integration
 confluent-kafka==2.1.2
+
+
+# Redis for Caching, Rate Limiting & Idempotency
+redis==7.1.1

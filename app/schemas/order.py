@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, UUID4
 from typing import Optional
 from datetime import datetime
 from app.schemas.order_item import OrderItemCreate, OrderItemResponse
@@ -11,6 +11,9 @@ class OrderCreate(BaseModel):
     )
     order_items: list[OrderItemCreate] = Field(
         description="A list of items included in the order."
+    )
+    idempotency_key: UUID4 = Field(
+        description="A unique key to ensure idempotency of order creation requests."
     )
 
 class OrderResponse(BaseModel):

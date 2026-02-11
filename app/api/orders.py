@@ -13,8 +13,8 @@ from app.core.security import require_customer_or_admin, require_order_updater
 from app.models.user import User
 from app.models.order import Order
 
-from app.services.order_validation import order_service as order_service
-from app.services.order_validation import order_status_service as order_status_service
+from app.services.order_validation_service import order_service as order_service
+from app.services.order_validation_service import order_status_service as order_status_service
 
 router = APIRouter()
 
@@ -30,10 +30,11 @@ def create_order(
 def change_order_status(
         order_id: int,
         new_status: str,
+        driver_id: int | None = None,
         db: session = Depends(get_db), 
         current_user: User = Depends(require_order_updater)
     ):
-    return order_status_service.update_order_status(db, current_user, order_id, new_status)
+    return order_status_service.update_order_status(db, current_user, order_id, new_status, driver_id)
 
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(

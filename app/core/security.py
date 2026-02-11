@@ -85,6 +85,6 @@ def require_driver_or_admin(current_user: User = Depends(get_current_user)):
     return current_user
 
 def require_order_updater(current_user: User = Depends(get_current_user)):
-    if current_user.role not in [UserRole.ADMIN, UserRole.RESTAURANT_OWNER, UserRole.DRIVER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.RESTAURANT_OWNER, UserRole.DRIVER, UserRole.SYSTEM]:
         raise HTTPException(status_code=403, detail="Restaurant Owner, Driver or Admin privileges required")
     return current_user

@@ -10,7 +10,7 @@ class UserRole(str, Enum):
     CUSTOMER = 'customer'
     RESTAURANT_OWNER = 'restaurant_owner'
     DRIVER = "driver"
-    SYSYEM = "system"
+    SYSTEM = "system"
 
 class UserLogin(BaseModel):
     email: EmailStr = Field(

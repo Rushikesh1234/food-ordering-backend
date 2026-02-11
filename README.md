@@ -75,6 +75,19 @@ CREATED
 **Analytics / Notification–ready architecture**
 - Consumers are decoupled and independently scalable
 
+### 🔹 Phase 3 – Reliability & Data Consistency (Completed)
+#### 📤 Transactional Outbox Pattern
+- **Guaranteed Event Delivery:** Eliminated the "Dual-Write" problem by saving business data and event payloads in a single atomic PostgreSQL transaction.
+- **CDC-Ready Architecture:** Used an `outbox` table to act as the source of truth for Kafka events, ensuring Kafka and the Database never get out of sync.
+- **Debezium-Style Flow:** Events are persisted to the DB first, then streamed to Kafka, preventing "Ghost Events" if the message broker is down.
+
+#### 🛡️ Distributed Idempotency (Redis)
+- **Duplicate Prevention:** Implemented a Redis-backed idempotency layer for consumers.
+- **Namespaced Processing:** Used service-specific prefixes (e.g., `driver_service:proc:{id}`) to allow multiple different services to process the same Kafka event without collision.
+- **TTL-Based Locking:** Automatic cleanup of processed event IDs to manage Redis memory efficiently.
+
+#### 🔄 Composable Transaction Management
+- **Flush vs. Commit:** Refactored service layers to support "Unit of Work" patterns, allowing API routes and Kafka Consumers to control their own transaction boundaries.
 ---
 
 ## ⚙️ Key Architectural Patterns
@@ -88,6 +101,10 @@ CREATED
   - **At-Least-Once Delivery**: Designed consumers to handle Kafka's "at-least-once" guarantee by implementing database-level checks (Idempotency) before processing.
   - **Sequential Ordering**: Used `order_id` as the **Kafka Partition Key** to ensure all events for a specific order are processed in the exact sequence they occurred, preventing race conditions.
   - **Consumer Groups**: Services are organized into unique `group_ids` for horizontal scaling, allowing multiple instances to share the load without double-processing.
+
+- **Transactional Outbox Pattern:** To ensure 100% consistency between the Database and Kafka, I moved away from "Publish-then-Commit." The system now writes event payloads directly into a dedicated `outbox` table within the same transaction as the order update. This ensures that if the database write succeeds, the event is guaranteed to eventually reach Kafka.
+
+- **Distributed Idempotency:** Using Redis as a distributed set, I implemented a "Check-and-Set" logic for all consumers. This ensures that even if Kafka redelivers a message (at-least-once delivery), the business logic (like assigning a driver) only executes exactly once, preventing race conditions and duplicate actions in a multi-instance production environment.
 
 ---
 
@@ -118,11 +135,13 @@ food-ordering-backend/
 | :--- | :--- |
 | **Framework** | FastAPI (Python) |
 | **Database** | PostgreSQL |
-| **ORM** | SQLAlchemy 2.0 |
+| **ORM** | SQLAlchemy 2.0 Composable Transactions (Flush/Commit/atomic)|
 | **Authentication** | JWT (PyJWT) |
 | **Validation** | Pydantic v2 |
 | **Event Streaming** | Apache Kafka |
 | **Architecture** | Clean + Event-Driven |
+| **Caching/Idempotency** | Redis |
+| **Consistency Pattern** | Transactional Outbox |
 
 ---
 
@@ -154,9 +173,11 @@ DATABASE_URL=postgresql://user:password@localhost/dbname
 SECRET_KEY=your_super_secret_key
 ALGORITHM=HS256
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
-### 3. Start Infrastructure (Kafka)
+### 3. Start Kafka Infrastructure
 Kafka requires Zookeeper.
 ```bash
 # Start Zookeeper
@@ -175,7 +196,13 @@ python main.py
 ```
 Consumers must run in the background to process events.
 
-### 5. Run the API Server
+### 5. Start Redis Infrastructure
+Start Redis (Required for Idempotency)
+```bash
+docker run -d --name redis -p 6379:6379 redis:alpine
+```
+
+### 6. Run the API Server
 ```bash
 uvicorn main:app --reload
 ```
@@ -204,8 +231,7 @@ graph TD
 
 ## 🛣 Roadmap
 
-- [ ] **Phase 3**: Transactional Outbox Pattern (To ensure the Database and Kafka are always in sync, preventing "Ghost Events" if the broker is down during a DB commit.) and Dead Letter Queues (DLQ) (To handle "Poison Pill" messages that cause consumers to crash, ensuring the pipeline doesn't get stuck.) 
-- [ ] **Phase 4**: RabbitMQ for delayed retries & timeouts (driver no-response handling or for long running processes).
+- [ ] **Phase 4**: Dead Letter Queues (DLQ) for handling "Poison Pill" Kafka messages. RabbitMQ for delayed retries & timeouts (driver no-response handling or for long running processes).
 - [ ] **Phase 5**: Elasticsearch for restaurant & menu search, Redis for caching & rate limiting, and Database Indexing (Focusing on Scaled Read).
 - [ ] **Phase 6**: Geospatial Queries (PostGIS) (Moving the Driver Service from a simple "First Available" search to a "Nearest Distance" search using spatial indexing.)
 - [ ] **Phase 7**: Database Migrations with Alembic.

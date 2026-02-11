@@ -1,9 +1,28 @@
 import json
+import redis
 from confluent_kafka import Consumer
 
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 TOPIC = "order.events"
 GROUP_ID = "customer-notification-group"
+
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+EVENT_HISTORY_TTL = 86400
+
+def create_redis_client():
+    return redis.Redis(
+        host=REDIS_HOST, 
+        port=REDIS_PORT, 
+        decode_responses=True,
+        max_connections=50,
+        socket_timeout=5
+    )
+
+def is_duplicate_event(redis_client, event_id:str) -> bool:
+    key = f"notif_service:proc:{event_id}"
+    is_new = redis_client.set(key, "true", nx=True, ex=EVENT_HISTORY_TTL)
+    return is_new is None
 
 def create_consumer():
     return Consumer({
@@ -52,8 +71,10 @@ def process_event(event: dict):
 def start_consumer():
     consumer = create_consumer()
     consumer.subscribe([TOPIC])
-
     print("Consumer Notificaiton Service Started...")
+
+    redis_client = create_redis_client()
+    print("Redis client connected...")
 
     try:
         while True:
@@ -70,7 +91,19 @@ def start_consumer():
             if message is not None:
                 try:
                     event = json.loads(message.decode("utf-8"))
-                    process_event(event)
+                    event_payload = event.get("payload", {})
+
+                    event_id = event_payload.get("event_id")
+                    
+                    if not event_id:
+                        print("Received event without event_id, skipping...")
+                        continue
+                        
+                    if is_duplicate_event(redis_client, event_id):
+                        print(f"Duplicate event {event_id} detected, skipping...")
+                        continue    
+
+                    process_event(event_payload)
                 except json.JSONDecodeError as e:
                     print(f"Failed to parse JSON: {e}")
             else:
