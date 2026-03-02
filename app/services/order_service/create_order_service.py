@@ -1,43 +1,44 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
 from decimal import Decimal
 import uuid
-from typing import cast
+from typing import cast, final
 
 from app.models.order import Order
 from app.models.order_item import OrderItem
-from app.models.order import Outbox
+from app.models.outbox import Outbox
 from app.models.user import User
 
 from app.schemas.order import OrderCreate, OrderResponse
 from app.schemas.order_events import OrderCreatedEvent, OrderItemPayload
 
-from app.services.order_validation_service.validate_service import validate_restaurant, validate_menu_items
+from app.services.order_service.validate_service import validate_restaurant, validate_menu_items
+
+# We are not going to publish the event directly from the service, 
+# instead we will create an entry in the outbox table and 
+# a separate process will read from the outbox table and 
+# publish the event to Kafka. This is to ensure that if Kafka is down, 
+# we don't lose any events and we can retry publishing the events later.
 
 # from app.events.in_memory_publisher import InMemoryPublisher
-from app.events.kafka_publisher import KafkaEventPublisher
+# from app.events.kafka_publisher import KafkaEventPublisher
 
 # event_publisher = InMemoryPublisher()
-event_publisher = KafkaEventPublisher()
+# event_publisher = KafkaEventPublisher()
 
 from app.core.redis_config import redis_client, IDEMPOTENCY_TTL
 
 def create_order(db: Session, user: User, order_data: OrderCreate) -> OrderResponse:
 
     redis_idempotency_key = f"idemp:user_{user.id}:{order_data.idempotency_key}"
-
     db_idempotency_key = str(order_data.idempotency_key)
 
     is_new = redis_client.set(redis_idempotency_key, "Processing", nx=True, ex=IDEMPOTENCY_TTL)
-
     if not is_new:
-        existing_order = db.query(Order).filter(
-            Order.idempotency_key == db_idempotency_key
-        ).first()
-
-        if existing_order:
+        status = redis_client.get(redis_idempotency_key)
+        if status and status == b"Completed":
+            existing_order = db.query(Order).filter(Order.idempotency_key == db_idempotency_key).first()
             return OrderResponse.model_validate(existing_order)
-    
         raise HTTPException(status_code=409, detail="Order is already being processed.")
 
     try:        
@@ -57,14 +58,23 @@ def create_order(db: Session, user: User, order_data: OrderCreate) -> OrderRespo
         db.add(new_order)
         db.flush()
 
+        event_items_payload = []
         for item in validated_items:
-            order_item = OrderItem(
+            db_order_item = OrderItem(
                 order_id=new_order.id,
                 menu_item_id=item["menu_item"].id,
                 quantity=item["quantity"],
                 price=item["price"]
             )
-            db.add(order_item)
+            db.add(db_order_item)
+
+            event_items_payload.append(
+                OrderItemPayload(
+                    item_id=cast(int, db_order_item.menu_item_id),
+                    quantity=cast(int, db_order_item.quantity),
+                    price_per_unit=float(cast(Decimal, db_order_item.price))
+                )
+            )
         
         # need to refresh db, to pull recently created order_item for kafka loop for event creation
         # db.refresh(new_order, attribute_names=['order_items'])
@@ -114,14 +124,7 @@ def create_order(db: Session, user: User, order_data: OrderCreate) -> OrderRespo
             order_id = cast(int, new_order.id),
             user_id = cast(int, user.id),
             restaurant_id = cast(int, new_order.restaurant_id),
-            items = [
-                OrderItemPayload(
-                    item_id=cast(int, item.menu_item_id),
-                    quantity=item.quantity,
-                    price_per_unit=float(cast(Decimal, item.price))
-                )
-                for item in new_order.order_items
-            ],
+            items = event_items_payload,
             total_amount = float(cast(Decimal,new_order.total_amount))
         )
         
@@ -135,26 +138,25 @@ def create_order(db: Session, user: User, order_data: OrderCreate) -> OrderRespo
         db.add(event_entry)
 
         db.commit()
-        db.refresh(new_order)
 
         redis_client.set(redis_idempotency_key, "Completed", ex=IDEMPOTENCY_TTL)
+        db.refresh(new_order)
+        final_order = db.query(Order).options(
+            joinedload(Order.order_items).joinedload(OrderItem.menu_item)
+        ).filter(Order.id == new_order.id).first()
 
-        return OrderResponse.model_validate(new_order)
-    
-    except HTTPException as e:
-        db.rollback()
-        redis_client.delete(redis_idempotency_key)
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=500, detail="Order creation failed") from e
+        return OrderResponse.model_validate(final_order)
     except Exception as e:
         db.rollback()
         redis_client.delete(redis_idempotency_key)
+
         if "unique constraint" in str(e).lower() and "idempotency_key" in str(e).lower():
             retry_order = db.query(Order).filter(
                 Order.idempotency_key == db_idempotency_key
             ).first()
-            return OrderResponse.model_validate(retry_order)
+            if retry_order: return OrderResponse.model_validate(retry_order)
         if isinstance(e, Exception):
             raise e
+        
+        print(f"CRITICAL ORDER FAILURE: {str(e)}")
         raise HTTPException(status_code=500, detail="Could not create order and event.") from e

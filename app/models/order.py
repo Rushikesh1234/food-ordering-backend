@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, String, Column, Integer, DateTime, Numeric
+from sqlalchemy import ForeignKey, UniqueConstraint, String, Column, Integer, DateTime, Numeric
 import uuid
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -26,12 +26,7 @@ class Order(Base):
     restaurant = relationship("Restaurant", back_populates="orders")
     order_items = relationship("OrderItem", back_populates="order")
 
- 
-class Outbox(Base):
-    __tablename__ = "outbox"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'idempotency_key', name='uix_user_id_idempotency_key'),
+    )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    aggregatetype = Column(String)
-    aggregateid = Column(String)
-    type = Column(String)
-    payload = Column(JSONB)

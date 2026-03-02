@@ -3,7 +3,7 @@ import redis
 from confluent_kafka import Consumer
 
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-TOPIC = "order.events"
+TOPIC = "events.Order"
 GROUP_ID = "analytics-group"
 
 REDIS_HOST = "localhost"
@@ -43,16 +43,16 @@ def process_event(event : dict):
 
         print(
             f"[ANALYTICS] Orders: {order_count}, "
-            f"Revenue: ${round(total_revenue, 2)}"
+            f"[ANALYTICS] Revenue: ${round(total_revenue, 2)}"
         )
 
 def start_consumer():
     consumer = create_consumer()
     consumer.subscribe([TOPIC])
-    print("Analytics Service started...")
+    print("[ANALYTICS] Analytics Service started...")
 
     redis_client = create_redis_client()
-    print("Redis client connected...")
+    print("[ANALYTICS]Redis client connected...")
 
     try:
         while True:
@@ -61,7 +61,7 @@ def start_consumer():
             if msg is None:
                 continue
             if msg.error():
-                print(f"Consumer error: {msg.error()}")
+                print(f"[ANALYTICS] Consumer error: {msg.error()}")
                 continue
                 
             message = msg.value()
@@ -74,18 +74,18 @@ def start_consumer():
                     event_id = event_payload.get("event_id")
                     
                     if not event_id:
-                        print("Received event without event_id, skipping...")
+                        print("[ANALYTICS] Received event without event_id, skipping...")
                         continue
                         
                     if is_duplicate_event(redis_client, event_id):
-                        print(f"Duplicate event {event_id} detected, skipping...")
+                        print(f"[ANALYTICS] Duplicate event {event_id} detected, skipping...")
                         continue    
 
                     process_event(event_payload)
                 except json.JSONDecodeError as e:
-                    print(f"Failed to parse JSON: {e}")
+                    print(f"[ANALYTICS]Failed to parse JSON: {e}")
             else:
-                print("Received a tombstone or empty message.")
+                print("[ANALYTICS] Received a tombstone or empty message.")
     except KeyboardInterrupt:
         pass
 

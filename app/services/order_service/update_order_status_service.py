@@ -5,18 +5,23 @@ import uuid
 
 from app.models.order import Order
 from app.models.user import User
-from app.models.order import Outbox
+from app.models.outbox import Outbox
 
-from app.services.order_validation_service.order_state_machine import validate_transitions
+from app.services.order_service.order_state_machine import validate_transitions
 
-from app.events.kafka_publisher import KafkaEventPublisher
+# We are not going to publish the event directly from the service, 
+# instead we will create an entry in the outbox table and 
+# a separate process will read from the outbox table and 
+# publish the event to Kafka. This is to ensure that if Kafka is down, 
+# we don't lose any events and we can retry publishing the events later.
+
+# from app.events.kafka_publisher import KafkaEventPublisher
+# event_publisher = KafkaEventPublisher()
 
 from app.schemas.order_events import OrderStateUpdatedEvent
 from app.schemas.user import UserRole
 
-event_publisher = KafkaEventPublisher()
-
-def update_order_status(
+def update_order(
         db: Session, 
         current_user: User, 
         order_id: int, 

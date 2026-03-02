@@ -3,7 +3,7 @@ import redis
 from confluent_kafka import Consumer
 
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-TOPIC = "order.events"
+TOPIC = "events.Order"
 GROUP_ID = "customer-notification-group"
 
 REDIS_HOST = "localhost"
@@ -71,10 +71,10 @@ def process_event(event: dict):
 def start_consumer():
     consumer = create_consumer()
     consumer.subscribe([TOPIC])
-    print("Consumer Notificaiton Service Started...")
+    print("[NOTIFICATION] Consumer Notificaiton Service Started...")
 
     redis_client = create_redis_client()
-    print("Redis client connected...")
+    print("[NOTIFICATION] Redis client connected...")
 
     try:
         while True:
@@ -83,7 +83,7 @@ def start_consumer():
             if msg is None:
                 continue
             if msg.error():
-                print(f"Consumer error: {msg.error()}")
+                print(f"[NOTIFICATION] Consumer error: {msg.error()}")
                 continue
             
             message = msg.value()
@@ -96,18 +96,18 @@ def start_consumer():
                     event_id = event_payload.get("event_id")
                     
                     if not event_id:
-                        print("Received event without event_id, skipping...")
+                        print("[NOTIFICATION] Received event without event_id, skipping...")
                         continue
                         
                     if is_duplicate_event(redis_client, event_id):
-                        print(f"Duplicate event {event_id} detected, skipping...")
+                        print(f"[NOTIFICATION] Duplicate event {event_id} detected, skipping...")
                         continue    
 
                     process_event(event_payload)
                 except json.JSONDecodeError as e:
-                    print(f"Failed to parse JSON: {e}")
+                    print(f"[NOTIFICATION] Failed to parse JSON: {e}")
             else:
-                print("Received a tombstone or empty message.")
+                print("[NOTIFICATION] Received a tombstone or empty message.")
             
     except KeyboardInterrupt:
         pass

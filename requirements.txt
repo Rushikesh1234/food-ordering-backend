@@ -23,3 +23,7 @@ confluent-kafka==2.1.2
 
 # Redis for Caching, Rate Limiting & Idempotency
 redis==5.0.3
+
+# Elasticsearch Integration
+elasticsearch==8.12.1
+aiohttp

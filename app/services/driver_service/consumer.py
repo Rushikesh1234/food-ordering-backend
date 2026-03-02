@@ -5,7 +5,7 @@ from typing import cast
 
 from app.db.session import get_db_context
 
-from app.services.order_validation_service.order_status_service import update_order_status
+from app.services.order_service.update_order_status_service import update_order
 
 from app.models.user import User
 from app.models.order import Order
@@ -13,7 +13,7 @@ from app.models.order import Order
 from app.schemas.user import UserRole
 
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-TOPIC = "order.events"
+TOPIC = "events.Order"
 GROUP_ID = "drivers-assignment-group"
 
 REDIS_HOST = "localhost"
@@ -44,24 +44,24 @@ def create_consumer():
 def process_event(event : dict):
     if event.get("event_type") == "OrderStatusUpdated" and event.get("new_status") == "READY":
         order_id = event.get("order_id")
-        print(f"DEBUG: Order {order_id} is READY. Searching for a driver...")
+        print(f"[DRIVER ASSIGNMENT]DEBUG: Order {order_id} is READY. Searching for a driver...")
 
         with get_db_context() as db:
             try:
                 order = db.query(Order).filter(Order.id == order_id).first()
                 if not order:
-                    print(f"ERROR: Order {order_id} does not exist.")
+                    print(f"[DRIVER ASSIGNMENT] ERROR: Order {order_id} does not exist.")
                     return
                 
                 if str(order.status) == "ASSIGNED":
-                    print(f"DEBUG: Order {order_id} is already assigned. Skipping.")
+                    print(f"[DRIVER ASSIGNMENT] DEBUG: Order {order_id} is already assigned. Skipping.")
                     return
                 
                 driver = db.query(User).filter(User.role == UserRole.DRIVER).first()
                 if driver:
                     system_user = User(id=0, role="system", email="system@foodapp.com")
                     try:
-                        update_order_status(
+                        update_order(
                             db,
                             system_user,
                             cast(int, order_id),
@@ -70,14 +70,14 @@ def process_event(event : dict):
                             commit=False
                         )
                         db.commit()
-                        print(f"SUCCESS: Order {order_id} assigned to Driver {driver.id}")
+                        print(f"[DRIVER ASSIGNMENT] SUCCESS: Order {order_id} assigned to Driver {driver.id}")
                     except Exception as e:
                         db.rollback()
-                        print(f"ERROR: Failed to assign driver for order {order_id}: {e}")
+                        print(f"[DRIVER ASSIGNMENT] ERROR: Failed to assign driver for order {order_id}: {e}")
                 else:
-                    print(f"WARNING: No drivers available for Order {order_id}")
+                    print(f"[DRIVER ASSIGNMENT]WARNING: No drivers available for Order {order_id}")
             except Exception as e:
-                print(f"ERROR: Failed to assign driver for order {order_id}: {e}")
+                print(f"[DRIVER ASSIGNMENT] ERROR: Failed to assign driver for order {order_id}: {e}")
 
 def start_consumer():
     consumer = create_consumer()

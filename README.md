@@ -91,6 +91,16 @@ CREATED
 
 #### 🔄 Composable Transaction Management
 - **Flush vs. Commit:** Refactored service layers to support "Unit of Work" patterns, allowing API routes and Kafka Consumers to control their own transaction boundaries.
+
+### 🔹 Phase 4 – High-Performance Search & CQRS (Completed)
+#### 🔍 Elasticsearch Search Engine
+- **CQRS Architecture:** Segregated "Command" (PostgreSQL) from "Query" (Elasticsearch) to ensure database hits are minimized during heavy traffic.
+- **Fuzzy Search & Ranking:** Implemented typo-tolerant search using Levenshtein distance and field boosting (e.g., matching a `restaurant_name` is weighted higher than a `description`).
+- **Async Read Layer:** Utilized `AsyncElasticsearch` with FastAPI's `asynccontextmanager` to handle thousands of concurrent search requests without blocking.
+
+#### 🏗️ Search Sync Service (Event Enrichment)
+- **Denormalized Indexing:** Implemented "Event Enrichment" where Kafka payloads carry full context (e.g., `restaurant_name` inside a `MenuItemCreated` event), eliminating N+1 queries in the sync consumer.
+- **Data Migration Tooling:** Developed a custom migration utility to backfill existing PostgreSQL data into Elasticsearch indices.
 ---
 
 ## ⚙️ Key Architectural Patterns
@@ -108,6 +118,10 @@ CREATED
 - **Transactional Outbox Pattern:** To ensure 100% consistency between the Database and Kafka, I moved away from "Publish-then-Commit." The system now writes event payloads directly into a dedicated `outbox` table within the same transaction as the order update. This ensures that if the database write succeeds, the event is guaranteed to eventually reach Kafka.
 
 - **Distributed Idempotency:** Using Redis as a distributed set, I implemented a "Check-and-Set" logic for all consumers. This ensures that even if Kafka redelivers a message (at-least-once delivery), the business logic (like assigning a driver) only executes exactly once, preventing race conditions and duplicate actions in a multi-instance production environment.
+
+- **CQRS (Command Query Responsibility Segregation):** To scale read operations, I implemented a CQRS pattern. PostgreSQL remains the single source of truth for transactions, while Elasticsearch serves all search and filter queries. This prevents expensive `LIKE %query%` operations from slowing down the primary database.
+
+- **Event Enrichment:** To optimize the synchronization pipeline, I implemented Event Enrichment. Instead of passing just an ID, the Outbox events carry the necessary display data (like names and prices). This makes the sync consumer "stateless" and lightning-fast, as it no longer needs to reach back into the database to build the search document.
 
 ---
 
@@ -145,6 +159,9 @@ food-ordering-backend/
 | **Architecture** | Clean + Event-Driven |
 | **Caching/Idempotency** | Redis |
 | **Consistency Pattern** | Transactional Outbox |
+| **Search Engine** | Elasticsearch |
+| **Search Client** | AsyncElasticsearch |
+| **Pattern** | CQRS & Event Enrichment |
 
 ---
 
@@ -215,7 +232,16 @@ redis-cli ping
 # Should return "PONG"
 ```
 
-### 6. Run the API Server
+### 6. Start Elasticsearch Infrastructure
+```bash
+# Start Elasticsearch (Natively)
+./bin/elasticsearch
+
+# Verify Search Index
+curl -u ES_USER:ES_PASS -k "https://localhost:9200/_cat/indices?v&s=index"
+```
+
+### 7. Run the API Server
 ```bash
 uvicorn main:app --reload
 ```
@@ -244,8 +270,7 @@ graph TD
 
 ## 🛣 Roadmap
 
-- [ ] **Phase 4**: Dead Letter Queues (DLQ) for handling "Poison Pill" Kafka messages. RabbitMQ for delayed retries & timeouts (driver no-response handling or for long running processes).
-- [ ] **Phase 5**: Elasticsearch for restaurant & menu search, Redis for caching & rate limiting, and Database Indexing (Focusing on Scaled Read).
+- [ ] **Phase 5**: Dead Letter Queues (DLQ) for handling "Poison Pill" Kafka messages. RabbitMQ for delayed retries & timeouts (driver no-response handling or for long running processes).
 - [ ] **Phase 6**: Geospatial Queries (PostGIS) (Moving the Driver Service from a simple "First Available" search to a "Nearest Distance" search using spatial indexing.)
 - [ ] **Phase 7**: Database Migrations with Alembic.
 - [ ] **Phase 8**: Containerization with Docker & Kubernetes.

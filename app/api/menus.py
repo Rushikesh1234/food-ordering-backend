@@ -13,72 +13,19 @@ from app.core.security import require_restaurant_owner_or_admin
 
 from app.db.session import get_db
 
+from app.services.menu_item_service.get_menu_items_service import get_menus
+from app.services.menu_item_service.create_menu_items_service import create_menu_items
+
 router = APIRouter()
 
 @router.get("/restaurants/{restaurant_id}/menu", response_model=List[MenuItemResponse])
-def get_menu(
-    restaurant_id: int, 
-    db: Session = Depends(get_db)
-    ):
-    menus = db.query(MenuItem).filter(MenuItem.restaurant_id == restaurant_id).all()
-
-    if not menus:
-        raise HTTPException(status_code=404, detail="Menu not found for the restaurant")
-
-    return menus
+def get_menus_service(restaurant_id: int, db: Session = Depends(get_db)) -> List[MenuItemResponse]:
+    return get_menus(db, restaurant_id)
 
 @router.post("/menu_items", response_model=List[MenuItemResponse])
-def create_menu_item(
+def create_menu_item_service(
     menu_item: List[MenuItemCreate], 
     db: Session = Depends(get_db),
     restaurant_owner: User = Depends(require_restaurant_owner_or_admin)
-    ):
-
-    new_menu_items_to_add = []
-
-    for item in menu_item:
-        restaurant = db.query(Restaurant).filter(Restaurant.id == item.restaurant_id).first()
-        if not restaurant:
-            raise HTTPException(status_code=404, detail="Restaurant not found")
-
-        if cast(str, restaurant_owner.role) != UserRole.ADMIN and cast(int, restaurant.owner_id) != restaurant_owner.id:
-            raise HTTPException(status_code=403, detail="Not authorized to add menu items to this restaurant")
-
-        existing_menu_item = db.query(MenuItem).filter(
-            MenuItem.restaurant_id == item.restaurant_id,
-            MenuItem.name == item.name
-        ).first()
-        if existing_menu_item:
-            raise HTTPException(status_code=400, detail="Menu item with this name already exists for the restaurant")
-
-        # simple way to add add in model
-        '''
-        new_menu_item = MenuItem(
-            restaurant_id=item.restaurant_id,
-            name=item.name,
-            description=item.description,
-            price=item.price
-        )
-        '''
-
-        # best way to add data in model
-        data = item.model_dump(
-            exclude_none=True,
-            exclude={"id", "created_at", "updated_at"}
-        )
-        data['restaurant_id'] = restaurant.id
-        new_menu_item = MenuItem(**data)
-
-        new_menu_items_to_add.append(new_menu_item)
-
-    if new_menu_items_to_add:
-        try:
-            db.add_all(new_menu_items_to_add)
-            db.commit()
-            for menu_item in new_menu_items_to_add:
-                db.refresh(menu_item)
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail="Could not create menu items") from e
-
-    return new_menu_items_to_add
+    ) -> List[MenuItemResponse]:
+    return create_menu_items(menu_item, db, restaurant_owner)
