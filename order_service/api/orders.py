@@ -12,6 +12,7 @@ from order_service.security.security import require_customer_or_admin, require_o
 from order_service.logic.create_order_service import create_order
 from order_service.logic.update_order_status_service import update_order
 from order_service.logic.get_order_service import get_order, get_orders
+from order_service.logic.checkout_service import create_payment
 
 router = APIRouter()
 
@@ -49,3 +50,10 @@ def get_orders_service(
         current_user: UserAuthSchema = Depends(require_customer_or_admin)
     ):
     return get_orders(db, current_user, last_id, size)
+
+@router.post("/create-payment-intent/{order_id}")
+async def create_payment_service(
+        order_id : int,
+        db: Session = Depends(get_db)
+    ):
+    return create_payment(order_id, db)

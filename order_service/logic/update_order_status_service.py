@@ -42,12 +42,12 @@ def update_order(
         validate_transitions(old_status, new_status)
 
         if new_status in ["ACCEPTED", "PREPARING", "READY"]:
-            if cast(str, current_user.role) == UserRole.RESTAURANT_OWNER:
+            if cast(str, current_user.role) == UserRole.SYSTEM:
                 local_restaurant = db.query(LocalRestaurant).filter(LocalRestaurant.id == order.restaurant_id).first()
                 if local_restaurant is None or cast(int,local_restaurant.owner_id) != current_user.id:
                     raise HTTPException(
                         status_code=403, 
-                        detail="You can only update orders for your own restaurant."
+                        detail="Order can only update by the restaurant that owns it via System role or Admin access required"
                     )
             elif cast(str, current_user.role) != UserRole.ADMIN: 
                 raise HTTPException(status_code=403, detail="Restaurant or Admin access required")

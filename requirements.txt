@@ -27,3 +27,6 @@ redis==5.0.3
 # Elasticsearch Integration
 elasticsearch==8.12.1
 aiohttp
+
+# Stripe Payment
+stripe>=10.0.0

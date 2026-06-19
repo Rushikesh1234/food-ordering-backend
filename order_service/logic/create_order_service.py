@@ -77,7 +77,7 @@ def create_order(
                 OrderItemPayload(
                     item_id=cast(int, db_order_item.menu_item_id),
                     quantity=cast(int, db_order_item.quantity),
-                    price_per_unit=float(unit_price_cents) / 100.0
+                    price_per_unit=unit_price_cents
                 )
             )
         
@@ -140,6 +140,7 @@ def create_order(
             type = event_data.event_type,
             payload = event_data.model_dump(mode='json')
         )
+        
         db.add(event_entry)
 
         db.commit()
@@ -164,5 +165,4 @@ def create_order(
         if isinstance(e, Exception):
             raise e
         
-        print(f"CRITICAL ORDER FAILURE: {str(e)}")
         raise HTTPException(status_code=500, detail="Could not create order and event.") from e

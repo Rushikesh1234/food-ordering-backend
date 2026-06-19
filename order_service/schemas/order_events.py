@@ -7,7 +7,7 @@ from order_service.schemas.event_base import BaseEvent
 class OrderItemPayload(BaseModel):
     item_id: int
     quantity: int
-    price_per_unit: float
+    price_per_unit: int
 
 class OrderCreatedEvent(BaseEvent):
     event_type: str = "OrderCreated"
@@ -25,3 +25,11 @@ class OrderStateUpdatedEvent(BaseEvent):
     user_id: int
     actor_role: str
     restaurant_id: int
+
+class OrderPaidEvent(BaseEvent):
+    event_type: str = "OrderPaid"
+    order_id: int
+    user_id: int
+    restaurant_id: int
+    items: List[OrderItemPayload]
+    total_amount: int

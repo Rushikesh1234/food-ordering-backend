@@ -32,6 +32,7 @@ class Order(Base):
     driver_id = Column(Integer, nullable=True, index=True)
 
     total_amount = Column(Integer, nullable=False, default=0)
+    
     stripe_payment_intent_id = Column(String, nullable=True, index=True)
 
     status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.CREATED, nullable=False, index=True)
